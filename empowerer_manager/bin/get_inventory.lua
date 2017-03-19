@@ -7,9 +7,9 @@ return function(side)
     local stack = inv.getStackInSlot(side, slot)
     if stack ~= nil then
       if table_utils.contains(result, stack.label) then
-        result[stack.lab] = result[stack.lab] + stack.size
+        result[stack.label] = result[stack.label] + stack.size
       else
-        result[stack.lab] = stack.size
+        result[stack.label] = stack.size
       end
     end
   end
