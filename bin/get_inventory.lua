@@ -1,3 +1,3 @@
 return function(side)
-    return "Hello World!"
+    return "Hello Updated World!"
 end
