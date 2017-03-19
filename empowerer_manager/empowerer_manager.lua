@@ -1,5 +1,7 @@
 -- Standard Imports
 local sides = require("sides")
+local rs = require("component").redstone
+local event = require("event")
 
 -- Import internal code
 dofile("/opt/empowerer_manager/init.lua")()
@@ -12,14 +14,31 @@ local check_power = dofile("/opt/empowerer_manager/check_power.lua")
 
 local config = load_config()
 
-check_power(sides[config.power], config.powerUpper, config.powerLower)
-
-local chestInv = get_inventory(sides[config.source])
-
-local recipe = get_recipe(chestInv, config.recipes)
-
-if recipe ~= nil then
-  prepare_recipe(sides[config.source], sides[config.destination], recipe)
-else
-  print("Nothing found")
+function canTick()
+  if rs.getInput(config.inProgress) > 0 then
+    print("Currently empowering")
+    return false
+  end
+  return true
 end
+
+
+function tick()
+  check_power(sides[config.power], config.powerUpper, config.powerLower)
+
+  if canTick() then
+    local chestInv = get_inventory(sides[config.source])
+
+    local recipe = get_recipe(chestInv, config.recipes)
+
+    if recipe ~= nil then
+      prepare_recipe(sides[config.source], sides[config.destination], recipe)
+    else
+      print("Nothing found")
+    end
+  end
+end
+
+print("Starting timer")
+
+event.timer(config.sleep, tick)
