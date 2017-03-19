@@ -14,6 +14,7 @@ function containsTable(set, table)
       return false
     end
   end
+  return true
 end
 
 -- https://stackoverflow.com/a/32660766
