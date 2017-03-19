@@ -14,7 +14,8 @@ if not fs.exists("/home/backup") then
 end
 
 -- Backup updatge incase we break it
-shell.execute("mv ./update.lua ./backup/update.lua")
+shell.execute("rm ./backup/update.lua")
+shell.execute("cp ./update.lua ./backup/update.lua")
 
 shell.execute("wget -fq https://raw.githubusercontent.com/stephenwilliams/OpenComputersStuff/master/update.lua ./update.lua")
 shell.execute("wget -fq https://raw.githubusercontent.com/stephenwilliams/OpenComputersStuff/master/test.lua ./test.lua")
