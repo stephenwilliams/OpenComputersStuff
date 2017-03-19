@@ -27,7 +27,7 @@ function getDestinationSlot(side, itemLabel, size)
   return nil
 end
 
-function moveItem(source, destination, sourceSlot, itemLabel, amount)
+function moveItemStack(source, destination, sourceSlot, itemLabel, amount)
   inv.suckFromSlot(source, sourceSlot, amount)
   local destSlot = getDestinationSlot(destination, itemLabel, amount)
   inb.dropIntoSlot(destination, destSlot, amount)
@@ -44,10 +44,10 @@ return function (source, destination, recipe)
 
       if stack.size >= amountLeft then
         amountLeft = 0
-        move(source, destination, slotInfo.slot, item, amountLeft)
+        moveItemStack(source, destination, slotInfo.slot, item, amountLeft)
       else
         amountLeft = amountLeft - stack.size
-        move(source, destination, slotInfo.slot, item, stack.size)
+        moveItemStack(source, destination, slotInfo.slot, item, stack.size)
       end
     end
   end
