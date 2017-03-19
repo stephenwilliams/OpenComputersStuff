@@ -11,10 +11,14 @@ local get_recipe = dofile("/opt/empowerer_manager/get_recipe.lua")
 local prepare_recipe = dofile("/opt/empowerer_manager/prepare_recipe.lua")
 local check_power = dofile("/opt/empowerer_manager/check_power.lua")
 
+local running = true
 local config = load_config()
 
 function canTick()
   if rs.getInput(sides[config.inProgress]) > 0 then
+    print("Shutdown redstone recieved. Shutting down")
+    running = false
+  elseif rs.getInput(sides[config.inProgress]) > 0 then
     print("Currently empowering")
     return false
   end
@@ -40,7 +44,7 @@ end
 
 print("Starting Empowerer Manager")
 
-while true do
+while running do
   tick()
   os.sleep(config.sleep)
 end

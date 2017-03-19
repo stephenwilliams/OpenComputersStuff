@@ -11,7 +11,7 @@ function containsRecipe(inv, items)
   return true
 end
 
-return function  (chestInv, itemss)
+return function  (chestInv, recipes)
   for _,recipe in pairs(recipes) do
     print("Checking recipe: "..recipe.name)
     if containsRecipe(chestInv, recipe.items) then
