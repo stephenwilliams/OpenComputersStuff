@@ -2,7 +2,7 @@ local inv = require("component").inventory_controller
 local table_utils = dofile("/opt/empowerer_manager/table_utils.lua")
 
 function getItemStack(side, itemLabel)
-  local maxSlots = sides.getInventorySize(side)
+  local maxSlots = inv.getInventorySize(side)
   for slot=1, maxSlots do
     local stack = inv.getStackInSlot(side, slot)
     if stack ~= nil and stack.label == itemLabel then
@@ -15,7 +15,7 @@ function getItemStack(side, itemLabel)
 end
 
 function getDestinationSlot(side, itemLabel, size)
-  local maxSlots = sides.getInventorySize(side)
+  local maxSlots = inv.getInventorySize(side)
   for slot=1, maxSlots do
     local stack = inv.getStackInSlot(side, slot)
     if stack ~= nil then
