@@ -34,7 +34,7 @@ function moveItem(source, destination, sourceSlot, itemLabel, amount)
 end
 
 return function (source, destination, recipe)
-  print("Preparing recipe :"..recipe)
+  print("Preparing recipe :"..recipe.name)
   for item, amount in pairs(recipe.items) do
     print("Moving "..amount.." of '"..item.."'")
     local amountLeft = amount
