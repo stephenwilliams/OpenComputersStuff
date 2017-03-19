@@ -11,7 +11,7 @@ local config = load_config()
 
 local chestInv = get_inventory(sides.top)
 
-for recipe in config.recipes dofile
+for recipe in config.recipes do
   print("Checking recipe: "..recipe.name)
   print(table_utils.containsTable(chestInv, recipe.items))
 end
