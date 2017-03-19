@@ -37,7 +37,7 @@ function equals(o1, o2, ignore_mt)
 end
 
 -- https://github.com/robmiracle/print_r/blob/master/print_r.lua
-local function print_r ( t )
+function print_r ( t )
         local print_r_cache={}
         local function sub_print_r(t,indent)
                 if (print_r_cache[tostring(t)]) then
@@ -70,7 +70,6 @@ local function print_r ( t )
         end
         print()
 end
-return print_r
 
 M.contains = contains
 M.equals = equals
