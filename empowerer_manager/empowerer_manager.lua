@@ -15,9 +15,10 @@ local running = true
 local config = load_config()
 
 function canTick()
-  if rs.getInput(sides[config.inProgress]) > 0 then
+  if rs.getInput(sides[config.exit]) > 0 then
     print("Shutdown redstone recieved. Shutting down")
     running = false
+    return false
   elseif rs.getInput(sides[config.inProgress]) > 0 then
     print("Currently empowering")
     return false
