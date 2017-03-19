@@ -5,7 +5,7 @@ function contains(set, key)
 end
 
 function containsTable(set, table)
-  for key,  val in pairs(table)
+  for key,  val in pairs(table) do
     if not contains(set, key) then
       return false
     end
