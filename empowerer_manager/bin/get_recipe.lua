@@ -1,9 +1,20 @@
-local table_utils = dofile("/opt/empowerer_manager/table_utils.lua")
+function containsRecipe(inv, items)
+  for item, amount in pairs(items) do
+    if not contains(inv, item) then
+      return false
+    end
 
-return function  (chestInv, recipes)
+    if inv[item] < amount then
+      return false
+    end
+  end
+  return true
+end
+
+return function  (chestInv, itemss)
   for _,recipe in pairs(recipes) do
     print("Checking recipe: "..recipe.name)
-    if table_utils.containsTable(chestInv, recipe.items) then
+    if containsRecipe(chestInv, recipe.items) then
       print("Found recipe: "..recipe.name)
       return recipe
     end

@@ -14,7 +14,7 @@ local check_power = dofile("/opt/empowerer_manager/check_power.lua")
 local config = load_config()
 
 function canTick()
-  if rs.getInput(config.inProgress) > 0 then
+  if rs.getInput(sides[config.inProgress]) > 0 then
     print("Currently empowering")
     return false
   end
