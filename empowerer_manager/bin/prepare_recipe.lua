@@ -18,7 +18,7 @@ function getDestinationSlot(side, itemLabel, size)
   local maxSlots = inv.getInventorySize(side)
   for slot=1, maxSlots do
     local stack = inv.getStackInSlot(side, slot)
-    if stack ~= nil then
+    if stack == nil then
       return slot
     elseif stack ~= nil and stack.itemLabel == itemLabel and (stack.size + size) <= stack.maxSize then
       return slot
@@ -30,7 +30,7 @@ end
 function moveItemStack(source, destination, sourceSlot, itemLabel, amount)
   inv.suckFromSlot(source, sourceSlot, amount)
   local destSlot = getDestinationSlot(destination, itemLabel, amount)
-  inb.dropIntoSlot(destination, destSlot, amount)
+  inv.dropIntoSlot(destination, destSlot, amount)
 end
 
 return function (source, destination, recipe)
@@ -43,8 +43,8 @@ return function (source, destination, recipe)
       local stack = slotInfo.stack
 
       if stack.size >= amountLeft then
-        amountLeft = 0
         moveItemStack(source, destination, slotInfo.slot, item, amountLeft)
+        amountLeft = 0
       else
         amountLeft = amountLeft - stack.size
         moveItemStack(source, destination, slotInfo.slot, item, stack.size)
