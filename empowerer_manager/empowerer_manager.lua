@@ -8,15 +8,18 @@ local table_utils = dofile("/opt/empowerer_manager/table_utils.lua")
 local load_config = dofile("/opt/empowerer_manager/load_config.lua")
 local get_recipe = dofile("/opt/empowerer_manager/get_recipe.lua")
 local prepare_recipe = dofile("/opt/empowerer_manager/prepare_recipe.lua")
+local check_power = dofile("/opt/empowerer_manager/check_power.lua")
 
 local config = load_config()
 
-local chestInv = get_inventory(sides.top)
+check_power(sides[config.power], config.powerUpper, config.powerLower)
+
+local chestInv = get_inventory(sides[config.source])
 
 local recipe = get_recipe(chestInv, config.recipes)
 
 if recipe ~= nil then
-  prepare_recipe(sides.top, sides.bottom, recipe)
+  prepare_recipe(sides[config.source], sides[config.destination], recipe)
 else
   print("Nothing found")
 end
