@@ -20,7 +20,7 @@ function getDestinationSlot(side, itemLabel, size)
     local stack = inv.getStackInSlot(side, slot)
     if stack ~= nil then
       return slot
-    elseif stack.itemLabel == itemLabel and (stack.size + size) <= stack.maxSize then
+    elseif stack ~= nil and stack.itemLabel == itemLabel and (stack.size + size) <= stack.maxSize then
       return slot
     end
   end
