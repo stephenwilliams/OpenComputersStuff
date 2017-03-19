@@ -1,7 +1,6 @@
 -- Standard Imports
 local sides = require("sides")
 local rs = require("component").redstone
-local event = require("event")
 
 -- Import internal code
 dofile("/opt/empowerer_manager/init.lua")()
@@ -39,6 +38,9 @@ function tick()
   end
 end
 
-print("Starting timer")
+print("Starting Empowerer Manager")
 
-event.timer(config.sleep, tick)
+while true do
+  tick()
+  os.sleep(config.sleep)
+end
