@@ -1,6 +1,7 @@
 -- Standard Imports
 local sides = require("sides")
 local rs = require("component").redstone
+local colors = require("colors")
 
 -- Import internal code
 dofile("/opt/empowerer_manager/init.lua")()
@@ -15,11 +16,11 @@ local running = true
 local config = load_config()
 
 function canTick()
-  if rs.getInput(sides[config.exit]) > 0 then
+  if rs.getBundledInput(sides[config.bundleInput], colors[config.exit]) > 0 then
     print("Shutdown redstone recieved. Shutting down")
     running = false
     return false
-  elseif rs.getInput(sides[config.inProgress]) > 0 then
+  elseif rs.getBundledInput(sides[config.bundleInput], colors[config.inProgress]) > 0 then
     print("Currently empowering")
     return false
   end
