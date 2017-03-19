@@ -1,4 +1,3 @@
-local shell = require("shell")
 local fs = require("filesystem")
 
 if not fs.exists("/home/lib") then
@@ -14,11 +13,11 @@ if not fs.exists("/home/backup") then
 end
 
 -- Backup updatge incase we break it
-shell.execute("rm ./backup/update.lua")
-shell.execute("cp ./update.lua ./backup/update.lua")
+os.execute("rm ./backup/update.lua")
+os.execute("cp ./update.lua ./backup/update.lua")
 
-shell.execute("wget -f https://raw.githubusercontent.com/stephenwilliams/OpenComputersStuff/master/update.lua ./update.lua")
-shell.execute("wget -f https://raw.githubusercontent.com/stephenwilliams/OpenComputersStuff/master/test.lua ./test.lua")
-shell.execute("wget -f https://raw.githubusercontent.com/stephenwilliams/OpenComputersStuff/master/lib/json.lua ./lib/json.lua")
-shell.execute("wget -f https://raw.githubusercontent.com/stephenwilliams/OpenComputersStuff/master/bin/get_inventory.lua ./bin/get_inventory.lua")
+os.execute("wget -f https://raw.githubusercontent.com/stephenwilliams/OpenComputersStuff/master/update.lua ./update.lua")
+os.execute("wget -f https://raw.githubusercontent.com/stephenwilliams/OpenComputersStuff/master/test.lua ./test.lua")
+os.execute("wget -f https://raw.githubusercontent.com/stephenwilliams/OpenComputersStuff/master/lib/json.lua ./lib/json.lua")
+os.execute("wget -f https://raw.githubusercontent.com/stephenwilliams/OpenComputersStuff/master/bin/get_inventory.lua ./bin/get_inventory.lua")
 
