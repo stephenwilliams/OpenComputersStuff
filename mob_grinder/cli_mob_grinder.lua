@@ -43,13 +43,13 @@ end
 
 -- END FUNCTIONS
 
-if (table.getn(args) <= 0) {
+if (table.getn(args) <= 0) then
   print("No args")
   return
-}
+end
 
-if (args[1] == "spawn" and table.getn(args) = 2) {
+if (args[1] == "spawn" and table.getn(args) = 2) then
   toggleSpawner(args[2])
-}
+end
 
 
