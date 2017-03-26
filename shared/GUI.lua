@@ -1,664 +1,1378 @@
---- config section
-local version="0.7.2b"
-local author="kevinkk525"
-local back_color_std=0x000000
-local fore_color_std=0xFFFFFF
-local hook_as_permanent=true --only for req_handler, ignore
-----
+local versionMajor = "2"
+local versionMinor = "0"
 
-local component=require("component")
-local term=require("term")
-local term_read=require("term_mod") --modified term.read function preventing line shifting
-local text=require("text")
-local unicode=require("unicode")
-local colors=require("colors")
-local event=require("event")
-local os=require("os")
-local table=require("table")
-local gpu=component.gpu
-local g={} --GUI functions
-local width,height=gpu.getResolution()
-local f --req-handler-hook, not required, ignore this
-local layerT={} --format: index/xy={index=object-ID-pointer},["layer"]={index/layer={index=object-pointer}}
-local objects={} --format: index=ID,ID=object
--- object .coords-format: index={x,y}
-local events={["touch"]="clickEvent",["scroll"]="scrollEvent"}
+--[[
+  https://oc.cil.li/index.php?/topic/997-my-gui/
 
+    Gui functions
+    Needs a screen tier 2 or tier 3
+    All x, y coordinates are relative to the gui, not the screen
+------------------------------------------------------------------------
+gui.Version()
+  returns the version of the library
 
---- todo
---g.error
---internal functions printXY,center,objectCenter
--- add option for RGB color system
--- set optimal screen Resolution when receiving screen change event
---add option to "minimize" objects
---add g.print(text,x,y)
---add possibility to update specific x,rx,y,ry --> optimization for .move,...
----
+gui.clearScreen()
+  clears the screen to background color, sets top and back line
 
+gui.setTop(text)
+  prints a text centered on the top line
 
+gui.setBottom(text)
+  prints a text centered on the bottom line
 
-----local functions
-local function getCoords(i) --probably unused
-    local w,h=g.getResolution()
-    if i>h*w then
-        return false,"too big"
-    end
-    local y,x=math.modf(i/w)
-    x=i-y*w
-    y=y+1
-    if x==0 then
-        y=y-1
-        x=w
-    end
-    return x,y
+gui.newGui(x, y, w, h, frame, text, bg, fg)
+  setup a new gui
+  frame = true/false
+  needs: x, y, w, h, frame
+
+gui.displayGui(guiID)
+  displays the whole gui and his widgets
+  needs to be called before handling the gui
+  first call of runGui will do it
+
+gui.newLabel(guiID, x, y, text, bg, fg)
+  register a new label to gui
+  returns id of the label
+  needs: guiID, x, y, text)
+
+gui.newCheckbox(guiID, x, y, status)
+  register a new checkbox to the gui
+  returns id of the checkbox
+  status can be true or false
+
+gui.newRadio(guiID, x, y)
+  registers a new radio button
+  returns id of the radio button
+  a gui can have only one set of radio buttons
+
+gui.newButton(guiID, x, y, text, func)
+  register a new button to gui
+  returns id of the button
+  func will be called if button is clicked with func(guiID, buttonID)
+  needs: guiID, x, y, text
+
+gui.newText(guiID, x, y, lenght, text, func)
+  register a new text input to gui
+  returns id of the text input
+  func will be called if input is finished and enter is pressed with func(guiID, textID, text)
+  needs: guiID, x, y, lenght, text
+
+gui.newProgress(guiID, x, y, lenght, maxValue, value, func, number)
+  register a new progress bar to the gui
+  returns the id of the progress bar
+  func will be called if value reached max value with func(guiID, progressID)
+  if number is given, it displays a % value in the middle on top of the bar
+  Progressbar will be paused if an text input is active
+  needs: guiID, x, y, lenght, maxValue, value
+
+gui.newVProgress(guiID, x, y, lenght, maxValue, value, func, direction)
+  register a new vertical progress bar to the gui
+  returns the id of the progress bar
+  func will be called if value reached max value with func(guiID, progressID)
+  If direction is 0 or not given, the bar runs from top to bottom.
+  If direction is 1 then bar runs from bottom to top
+  Progressbar will be paused if an text input is active
+  needs: guiID, x, y, lenght, maxValue, value
+
+gui.newList(guiID, x, y, width, height, tab, func, text)
+  register a new selection list to the gui
+  tab = table with entries
+  returns the id of the list
+  func will be called, if scrolling in list, or entry is selected with func(guiID, listID, selectedID, selectedText)
+  needs: guiID, x, y, width, height, tab
+
+gui.newFrame(guiID, x, y, width, height, text)
+  register a new frame to the gui
+  needs: guiID, x, y, width, height
+
+gui.newHLine(guiID, x, y, width)
+  register a new horizontal line
+
+gui.getCheckboxStatus(guiID, widgetID)
+  returns the status of the checkbox (true = enabled or false = disabled)
+
+gui.getSelected(guiID, listID)
+  returns the number and the text of the selected entrie in a list
+
+gui.setMax(guiID, progressID, maxValue)
+  set the maximum value of a progress bar
+
+gui.setValue(guiID, progressID, value)
+  set the value of a progress bar
+
+gui.resetProgress(guiID, progressID)
+  resets a progress bar to 0, so it can be used again
+
+gui.setText(guiID, widgetID, text)
+  sets text of an element
+  can be used on label, text inputs and lists
+
+gui.getText(guiID, widgetID)
+  returns text of an input field
+  can be used on label, text inputs and lists
+
+gui.setEnable(guiID, widgetID, state)
+  enable or disable element
+  state = true/false
+
+gui.setVisible(guiID, widgetID, state)
+  shows or hides an element
+  state = true/false
+  will also enable or disable the element. setEnable needs to be called if state is set back to true
+
+gui.clearList(guiID, listID)
+  clears a list to use it again
+
+gui.insertList(guiID, listID, value)
+  insert an entry into a list
+
+gui.getRadio(guiID)
+  resturns id of the selected radio button or -1 if none is selected
+
+gui.runGui(guiID)
+  needs to be called in a loop to run gui actions
+  it's possible to setup guis and run each seperated.
+
+gui.showError(msg1, msg2, msg3)
+  displays a centered error message, with exit program as button
+
+gui.showMsg(msg1, msg2, msg3)
+  displays a message box
+
+gui.getYesNo(msg1, msg2, msg3)
+  displays a yes-No question
+  returns true or false
+
+gui.exit()
+  clears the screen to black and exits the program
+
+---------------------------------------------------------------
+
+Example:
+
+local component = require("component")
+local gpu = component.gpu
+local gui = require("gui")
+
+local prgName = "Test"
+local version = gui.Version()
+
+function buttonCallback(guiID, id)
+  local result = gui.getYesNo("", "Do you really want to exit?", "")
+  if result == true then
+    gui.exit()
+  end
+  gui.displayGui(myGui)
 end
 
-local function getCoordsIndex(x,y)
-    local w,h=g.getResolution()
-    if x>w or y>h then
-        return false,"too big"
-    end
-    local i=(y-1)*w+x
-    return i
+myGui = gui.newGui(2, 2, 78, 23, true)
+button = gui.newButton(myGui, "center", 21, "exit", buttonCallback)
+
+gui.clearScreen()
+gui.setTop(prgName .. " " .. version)
+while true do
+  gui.runGui(myGui)
 end
 
-local function opt_res() --uses screen perfectly, not working atm..
-    local maxw,maxh=gpu.maxResolution()
-    local a_w,a_h=component.screen.getAspectRatio()
-    local h=1
-    local w=1
-    for i=maxh,1,-1 do
-        if i/a_h*a_w<=maxw then
-            return maxw,i
-        end
-    end
+]]
+
+
+local component = require("component")
+local gpu = component.gpu
+local event = require("event")
+local ser = require("serialization")
+local computer = require("computer")
+
+local gui = {}
+
+local colorScreenBackground = 0xC0C0C0
+local colorScreenForeground = 0x000000
+local colorTopLineBackground = 0x0000FF
+local colorTopLineForeground = 0xFFFFFF
+local colorBottomLineBackground = 0x0000FF
+local colorBottomLineForeground = 0xFFFFFF
+local colorFrameBackground = 0xC0C0C0
+local colorFrameForeground = 0x000000
+local colorButtonBackground = 0x0000FF
+local colorButtonForeground = 0xFFFFFF
+local colorButtonClickedBackground = 0x00FF00
+local colorButtonClickedForeground = 0xFFFFFF
+local colorButtonDisabledBackground = 0x000000
+local colorButtonDisabledForeground = 0xFFFFFF
+local colorTextBackground = 0x000000
+local colorTextForeground = 0xFFFF00
+local colorInputBackground = 0x0000FF
+local colorInputForeground = 0xFFFFFF
+local colorProgressBackground = 0x000000
+local colorProgressForeground = 0x00FF00
+local colorProgressNumberForeground = 0xFFFF00
+local colorListBackground = 0x0000FF
+local colorListForeground = 0xFFFFFF
+local colorListActiveBackground = 0x00FF00
+local colorListActiveForeground = 0xFFFF00
+local colorListDisabledBackground = 0x000000
+local colorListDisabledForeground = 0xFFFF00
+local colorVProgressBackground = 0x000000
+local colorVProgressForeground = 0x00FF00
+local colorVSliderBackground = 0x000000
+local colorVSliderForeground = 0x00FF00
+local colorChartBackground = 0x000000
+local colorChartForeground = 0x00FF00
+
+local screenWidth, screenHeight = gpu.getResolution()
+
+function gui.Version()
+  return versionMajor .. "." .. versionMinor, versionMajor, versionMinor
 end
 
-local function getLayer(x,y,rx,ry,direction) --upgrade
-    if x==nil or y==nil then
-        return false --or nil?
+function gui.checkVersion(major, minor)
+  local ret = true
+  if major < tonumber(versionMajor) then
+    ret = false
+  else
+    if minor < tonumber(versionMinor) then
+      ret = false
+    end
+  end
+  return ret
+end
+
+-- displays the gui frame, if set or just clears the display area
+local function _displayFrame(gui)
+  gpu.setBackground(gui.bg)
+  gpu.setForeground(gui.fg)
+  gpu.fill(gui.x, gui.y, gui.width, gui.height, " ")
+  if gui.frame == true then
+    gpu.fill(gui.x, gui.y, 1, gui.height, "║")
+    gpu.fill(gui.x + gui.width - 1, gui.y, 1, gui.height, "║")
+    gpu.fill(gui.x, gui.y, gui.width, 1, "═")
+    gpu.fill(gui.x, gui.y + gui.height - 1, gui.width, 1, "═")
+    gpu.set(gui.x, gui.y, "╔")
+    gpu.set(gui.x + gui.width - 1 , gui.y, "╗")
+    gpu.set(gui.x, gui.y + gui.height - 1 , "╚")
+    gpu.set(gui.x + gui.width - 1 , gui.y + gui.height - 1, "╝")
+    if gui.text then
+      gpu.set(gui.x + math.floor((gui.width/2)) - math.floor((string.len(gui.text)/2)), gui.y, gui.text)
+    end
+  end
+end
+
+-- displays a frame
+local function _displayAFrame(guiID, frameID)
+  gpu.setBackground(guiID.bg)
+  gpu.setForeground(guiID.fg)
+  gpu.fill(guiID[frameID].x, guiID[frameID].y, 1, guiID[frameID].height, "║")
+  gpu.fill(guiID[frameID].x + guiID[frameID].width - 1, guiID[frameID].y, 1, guiID[frameID].height, "║")
+  gpu.fill(guiID[frameID].x, guiID[frameID].y, guiID[frameID].width, 1, "═")
+  gpu.fill(guiID[frameID].x, guiID[frameID].y + guiID[frameID].height - 1, guiID[frameID].width, 1, "═")
+  gpu.set(guiID[frameID].x, guiID[frameID].y, "╔")
+  gpu.set(guiID[frameID].x + guiID[frameID].width - 1 , guiID[frameID].y, "╗")
+  gpu.set(guiID[frameID].x, guiID[frameID].y + guiID[frameID].height - 1 , "╚")
+  gpu.set(guiID[frameID].x + guiID[frameID].width - 1 , guiID[frameID].y + guiID[frameID].height - 1, "╝")
+  if guiID[frameID].text then
+    gpu.set(guiID[frameID].x + math.floor((guiID[frameID].width/2)) - math.floor((string.len(guiID[frameID].text)/2)+1), guiID[frameID].y, "╡" .. guiID[frameID].text .. "┝")
+  end
+end
+
+--display a horizontal line
+local function _displayHLine(guiID, lineID)
+  gpu.setBackground(guiID.bg)
+  gpu.setForeground(guiID.fg)
+  gpu.fill(guiID[lineID].x, guiID[lineID].y, guiID[lineID].width, 1, "═")
+end
+
+-- displays a checkbox
+local function _displayCheckbox(guiID, checkboxID)
+  if guiID[checkboxID].visible == true then
+    gpu.setBackground(guiID.bg)
+    gpu.setForeground(guiID.fg)
+    local x = 0
+    x =guiID.x + guiID[checkboxID].x
+    if guiID[checkboxID].status == true then
+      gpu.set(x, guiID[checkboxID].y, "[√]")
     else
-        rx=rx or 0
-        ry=ry or 0
-        local layer=100
-        local ende
-        if direction==1 then
-            ende=300
-        else
-            ende=1
-        end
-        for i=layer,ende,direction do
-            if layerT[i]~=nil then
-                --for j=1,#layerT[i] do --add a way to check layer in x->rx,y->ry.. too lazy :D
-                --if any object exists in that layer, no matter where, the layer is not empty..
-                layer=i
-            end
-        end
-        return layer
+      gpu.set(x, guiID[checkboxID].y, "[ ]")
     end
+  end
 end
 
-----
-
-function g.event(event,scr_addr,x,y,special,user) --special: touch:button, scroll:direction
-    local checkLayer
-    if not events[event] then
-        return false,"event does not exist"
-    end
-    for i=300,1,-1 do
-        if layerT[i]~=nil then
-            for j=1,#layerT[i] do
-                local k=layerT[i][j]
-                if k.getCoords()~=nil then
-                    for l=1,#k.getCoords() do
-                        if k.getCoords()[l][1]==x and k.getCoords()[l][2]==y then
-                            if layerT[i][j][events[event]](nil,nil,nil,nil,true) then
-                                k[events[event]](x,y,special,user)
-                            end
-                            return true
-                        end
-                    end
-                else
-                    if k.getX()<=x and k.getX()+k.getRX()>=x then
-                        if k.getY()<=y and k.getY()+k.getRY()>=y then
-                            if layerT[i][j][events[event]](nil,nil,nil,nil,true) then
-                                k[events[event]](x,y,special,user)
-                            end
-                            return true
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
-
-function g.changeLayer(o,layer,up)
-    if type(o)~="table" then
-        o=objects[o]
-    end
-    for j=1,#layerT[o.getLayer()] do
-        if layerT[o.getLayer()][j]==o then
-            table.remove(layerT[o.getLayer()],j)
-            if #layerT[o.getLayer()]==0 then
-                layerT[o.getLayer()]=nil
-            end
-        end
-    end
-    if layerT[layer]==nil then
-        layerT[layer]={}
-    end
-    layerT[layer][#layerT[layer]+1]=o
-    o.setLayer(layer)
-    o.show()
-    gpu.setForeground(fore_color_std)
-    gpu.setBackground(back_color_std)
-    if not up then
-        g.update(o,o.getLayer()+1,true)
-    end
-end
-
-function g.objectFunctions() --returns the basic object functions
-    return {} --at the moment no functions
-end
-
-function g.ID_Status(id) --if ID exists
-    if objects[id]~=nil then
-        return false
-    end
-    return true
-end
-
-function g.removeObject(ID,up)
-    if objects[ID]==nil then
-        return false,"does not exist"
-    end
-    local o=objects[ID]
-    if o.getCoords()~=nil then
-        for i=1,#o.getCoords() do
-            local x=o.getCoords()[i][1]
-            local y=o.getCoords()[i][2]
-            gpu.set(x,y," ")
-        end
+-- displays a radio button
+local function _displayRadio(guiID, radioID)
+  if guiID[radioID].visible == true then
+    gpu.setBackground(guiID.bg)
+    gpu.setForeground(guiID.fg)
+    local x = 0
+    x =guiID.x + guiID[radioID].x
+    if guiID[radioID].status == true then
+      gpu.set(x, guiID[radioID].y, "(x)")
     else
-        gpu.fill(o.getX(),o.getY(),o.getRX()+1,o.getRY()+1," ")
+      gpu.set(x, guiID[radioID].y, "( )")
     end
-    for j=1,#layerT[o.getLayer()] do
-        if layerT[o.getLayer()][j]==o then
-            table.remove(layerT[o.getLayer()],j)
-            if layerT[o.getLayer()][1]==nil then
-                layerT[o.getLayer()]=nil
-            end
-        end
-    end
-    if not up then
-        g.update(o,1,true)
-    end
-    for i=1,#objects do
-        if objects[i]==o.getID() then
-            table.remove(objects,i)
-        end
-    end
-    objects[ID]=nil
+  end
 end
 
-function g.removeFromScreen(o,up)
-    if type(o)~="table" then
-        o=objects[o]
-    end
-    if o.getCoords()~=nil then
-        for i=1,#o.getCoords() do
-            local x=o.getCoords()[i][1]
-            local y=o.getCoords()[i][2]
-            gpu.set(x,y," ")
-        end
+-- displays a label
+local function _displayLabel(guiID, labelID)
+  if guiID[labelID].visible == true then
+    gpu.setBackground(guiID[labelID].bg)
+    gpu.setForeground(guiID[labelID].fg)
+    local x = 0
+    if guiID[labelID].x == "center" then
+      x = guiID.x + math.floor((guiID.width / 2)) - math.floor((string.len(guiID[labelID].text)) / 2)
     else
-        gpu.fill(o.getX(),o.getY(),o.getRX()+1,o.getRY()+1," ")
+      x =guiID.x + guiID[labelID].x
     end
-    for j=1,#layerT[o.getLayer()] do
-        if layerT[o.getLayer()][j]==o then
-            table.remove(layerT[o.getLayer()],j)
-            if layerT[o.getLayer()][1]==nil then
-                layerT[o.getLayer()]=nil
-            end
-        end
-    end
-    if not up then
-        g.update(o,1,true)
-    end
+    gpu.set(x, guiID[labelID].y, guiID[labelID].text)
+  end
 end
 
-function g.addObject(obj,up,add_ov)
-    local add=true
-    for i=1,#objects do
-        if objects[i]==obj.getID() then
-            add=false
-            break
-        end
-    end
-    if add and not add_ov then
-        objects[#objects+1]=obj.getID()
-        objects[obj.getID()]=obj
-    end
-    if not up then
-        g.update(obj,obj.getLayer())
-    end
-    return true
-end
-
-function g.getObject(id)
-    return objects[id]
-end
-
-function g.setResolution(w,h)
-    if h==nil or w==nil then
-        w,h=opt_res()
-    end
-    gpu.setResolution(w,h)
-end
-
-function table.maxn(tab,highest)
-    highest=highest or 300
-    for i=highest,1,-1 do
-        if tab[i]~=nil then
-            return i
-        end
-    end
-    return 1
-end
-
-function table.minn(tab,highest)
-    highest=highest or 300
-    for i=1,300 do
-        if tab[i]~=nil then
-            return i
-        end
-    end
-    return 1
-end
-
-function g.opt_layers() --code deprecated, low priority
-    local w,h=gpu.getResolution()
-    for i=100,300 do
-        if g.getLayerStatus(1,1,w,h,i)=="empty" then
-            for j=1,w*h do
-                table.remove(scTable[j],i)
-            end
-            for j=1,#objects do
-                if objects[objects[j]].getLayer()>i then
-                    objects[objects[j]].setLayer(objects[objects[j]].getLayer()-1)
-                end
-            end
-        end
-    end
-    for i=99,1,-1 do
-        if g.getLayerStatus(1,1,w,h,i)=="empty" then
-            for j=i,1,-1 do
-                for k=1,w*h do
-                    scTable[k][j]=scTable[k][j-1]
-                end
-            end
-            for j=1,#objects do
-                if objects[objects[j]].getLayer()<i then
-                    objects[objects[j]].setLayer(objects[objects[j]].getLayer()+1)
-                end
-            end
-        end
-    end
-end
-
-function g.initShapes(import,override) --function to import shape files located in /lib
-    local i=require(import)
-    i.init(g)
-    for a,b in pairs(i) do
-        if g[a]~=nil and override~=true then
-            print(a.." exists")
-        else
-            g[a]=b
-        end
-    end
-end
-
-function g.removeShape(name)
-    if g[name]~=nil then
-        g[name]=nil
+-- displays a button
+local function _displayButton(guiID, buttonID)
+  if guiID[buttonID].visible == true then
+    if guiID[buttonID].active == true then
+      gpu.setBackground(colorButtonClickedBackground)
+      gpu.setForeground(colorButtonClickedForeground)
+    elseif guiID[buttonID].enabled == false then
+      gpu.setBackground(colorButtonDisabledBackground)
+      gpu.setForeground(colorButtonDisabledForeground)
     else
-        print("does not exist")
+      gpu.setBackground(colorButtonBackground)
+      gpu.setForeground(colorButtonForeground)
     end
-end
-
-function g.initialize(hook,back_color,fore_color,req_priority)
-    layerT={}
-    f=hook
-    if f==nil then
-        print("warning: no request-handler, ignore")
+    local x = 0
+    if guiID[buttonID].x == "center" then
+      x = guiID.x + math.floor((guiID.width / 2)) - math.floor((guiID[buttonID].lenght / 2))
     else
-        f.addStatus("GUI",g.update,"false")
-        local hook_as
-        if hook_as_permanent then
-            hook_as="permanent"
-        end
-        req_priority=req_priority or hook_as
-        f.addTask(nil,nil,nil,"internal","GUI",nil,nil,req_priority)
+      x = guiID.x + guiID[buttonID].x
     end
-    back_color_std=back_color or back_color_std
-    fore_color_std=fore_color or fore_color_std
-    term.setCursorBlink(false)
-    term.clear()
-    g.initShapes("shapes_default")
-    event.listen("touch",g.event)
-    event.listen("scroll",g.event)
+    gpu.fill(x, guiID[buttonID].y, guiID[buttonID].lenght, 1, " ")
+    gpu.set(x, guiID[buttonID].y, guiID[buttonID].text)
+  end
 end
 
-function g.stopGUI()
-    event.ignore("touch",g.event)
-    event.ignore("scroll",g.event)
-    for i=1,#objects do
-        if objects[objects[i]]~=nil then
-            objects[objects[i]].remove(true)
-        end
+-- displays a text
+local function _displayText(guiID, textID)
+  if guiID[textID].visible == true then
+    gpu.setBackground(colorTextBackground)
+    gpu.setForeground(colorTextForeground)
+    local x = 0
+    if guiID[textID].x == "center" then
+      x = guiID.x + math.floor((guiID.width / 2)) - math.floor((guiID[textID].lenght) / 2)
+    else
+      x = guiID.x + guiID[textID].x
     end
-    term.clear()
-    os.exit() --change this?
+    gpu.fill(x, guiID[textID].y , guiID[textID].lenght, 1, " ")
+    gpu.set(x, guiID[textID].y, string.sub(guiID[textID].text, 1, guiID[textID].lenght))
+  end
 end
 
-function g.setForeColor(color)
-    color=color or fore_color_std
-    gpu.setForeground(color)
+-- displays a vertical slider
+local function _displayVslider(guiID, sliderID)
+  if guiID[sliderID].visible == true then
+    gpu.setBackground(colorVSliderBackground)
+    gpu.setForeground(colorVSliderForeground)
+    local x = 0
+    x = guiID.x + guiID[sliderID].x
+    gpu.fill(x, guiID[sliderID].y , guiID[sliderID].lenght + 2, 1, " ")
+    gpu.setBackground(colorButtonBackground)
+    gpu.setForeground(colorButtonForeground)
+    gpu.set(x, guiID[sliderID].y, "-")
+    gpu.set(x + guiID[sliderID].lenght + 1, guiID[sliderID].y, "+")
+  end
 end
 
-function g.setBackColor(color)
-    color=color or back_color_std
-    gpu.setBackground(color)
+-- displays a progress bar
+local function _displayProgress(guiID, progressID)
+  if guiID[progressID].visible == true then
+    gpu.setBackground(colorProgressForeground)
+    gpu.setForeground(colorProgressBackground)
+    local x = 0
+    if guiID[progressID].x == "center" then
+      x = guiID.x + math.floor((guiID.width / 2)) - math.floor((guiID[progressID].lenght) / 2)
+    else
+      x = guiID.x + guiID[progressID].x
+    end
+    local proz = math.floor(100 / guiID[progressID].max * guiID[progressID].value)
+    if proz > 100 then
+      proz = 100
+      if guiID[progressID].finished == false and guiID[progressID].func then
+	guiID[progressID].func(guiID, progressID)
+      end
+      guiID[progressID].finished = true
+    end
+    local pos = math.floor(guiID[progressID].lenght / 100 * proz)
+    gpu.fill(x, guiID[progressID].y , pos, 1, " ")
+    gpu.setBackground(colorProgressBackground)
+    gpu.setForeground(colorProgressForeground)
+    gpu.fill(x + pos, guiID[progressID].y , guiID[progressID].lenght - pos, 1, " ")
+    gpu.setBackground(guiID.bg)
+    gpu.setForeground(guiID.fg)
+    if guiID[progressID].displayNumber == true then
+      gpu.fill(x, guiID[progressID].y - 1, guiID[progressID].lenght, 1, " ")
+      gpu.set(x + (math.floor(guiID[progressID].lenght / 2)) - 1, guiID[progressID].y - 1, proz .. "%")
+    end
+  end
 end
 
-function g.getResolution()
-    local w,h=gpu.getResolution()
-    if w~=width or h~=height then
-        g.update()
+-- displays a vertical progress bar
+local function _displayVProgress(guiID, progressID)
+  if guiID[progressID].visible == true then
+    local x = 0
+    if guiID[progressID].x == "center" then
+      x = guiID.x + math.floor((guiID.width / 2)) - math.floor((guiID[progressID].lenght) / 2)
+    else
+      x = guiID.x + guiID[progressID].x
     end
-    return w,h
+    local proz = math.floor(100 / guiID[progressID].max * guiID[progressID].value)
+    if proz > 100 then
+      proz = 100
+      if guiID[progressID].finished == false and guiID[progressID].func then
+	guiID[progressID].func(guiID, progressID)
+      end
+      guiID[progressID].finished = true
+    end
+    local pos = math.floor(guiID[progressID].lenght / 100 * proz)
+    for i = 1, guiID[progressID].width do
+      if guiID[progressID].direction == 0 then
+	gpu.setBackground(colorProgressForeground)
+	gpu.setForeground(colorProgressBackground)
+	gpu.fill(x+i-1, guiID[progressID].y , 1, pos, " ")
+	gpu.setBackground(colorProgressBackground)
+	gpu.setForeground(colorProgressForeground)
+	gpu.fill(x+i-1, guiID[progressID].y + pos, 1, guiID[progressID].lenght - pos, " ")
+      end
+      if guiID[progressID].direction == 1 then
+	gpu.setBackground(colorProgressBackground)
+	gpu.setForeground(colorProgressForeground)
+	gpu.fill(x+i-1, guiID[progressID].y, 1, guiID[progressID].lenght, " ")
+	gpu.setBackground(colorProgressForeground)
+	gpu.setForeground(colorProgressBackground)
+	gpu.fill(x+i-1, guiID[progressID].y + guiID[progressID].lenght - pos , 1, pos, " ")
+      end
+    end
+  end
 end
 
-function g.getScreenTable()
-    return layerT
+-- display list
+local function _displayList(guiID, listID)
+  if guiID[listID].visible == true then
+    if guiID[listID].enabled == true then
+      gpu.setBackground(colorListBackground)
+      gpu.setForeground(colorListForeground)
+    else
+      gpu.setBackground(colorListDisabledBackground)
+      gpu.setForeground(colorListDisabledForeground)
+    end
+    gpu.fill(guiID[listID].x, guiID[listID].y, guiID[listID].width, guiID[listID].height, " ")
+    gpu.fill(guiID[listID].x, guiID[listID].y, guiID[listID].width, 1, "═")
+    if guiID[listID].text then
+      gpu.set( guiID[listID].x + (guiID[listID].width/2) - (string.len(guiID[listID].text)/2), guiID[listID].y, "╡" .. guiID[listID].text .. "┝")
+    end
+    if guiID[listID].active + guiID[listID].height - 3 > #guiID[listID].entries then
+      l = #guiID[listID].entries
+    else
+      l = guiID[listID].active + guiID[listID].height - 3
+    end
+    gpu.fill(guiID[listID].x, guiID[listID].y +guiID[listID].height - 1, guiID[listID].width, 1, "═")
+    gpu.set(guiID[listID].x, guiID[listID].y + guiID[listID].height - 1, "[<]")
+    gpu.set(guiID[listID].x + guiID[listID].width - 3, guiID[listID].y + guiID[listID].height - 1, "[>]")
+    for v = guiID[listID].active, l  do
+      if v == guiID[listID].selected then
+	gpu.setBackground(colorListActiveBackground)
+	gpu.setForeground(colorListActiveForeground)
+      else
+	if guiID[listID].enabled == true then
+	  gpu.setBackground(colorListBackground)
+	  gpu.setForeground(colorListForeground)
+	else
+	  gpu.setBackground(colorListDisabledBackground)
+	  gpu.setForeground(colorListDisabledForeground)
+	end
+      end
+      gpu.fill(guiID[listID].x, guiID[listID].y + v - guiID[listID].active + 1, guiID[listID].width, 1 , " ")
+      gpu.set(guiID[listID].x + 1, guiID[listID].y + v - guiID[listID].active + 1, guiID[listID].entries[v] )
+    end
+  end
 end
 
-function g.show()
-    term.clear()
-    for i=1,300 do
-        if layerT[i]~=nil then
-            for j=1,#layerT[i] do
-                layerT[i][j].show(true)
-                gpu.setForeground(fore_color_std)
-                gpu.setBackground(back_color_std)
-            end
-        end
+-- displays a chart
+local function _displayChart(guiID, chartID)
+  if guiID[chartID].visible == true then
+    gpu.setBackground(colorChartBackground)
+    gpu.setForeground(colorChartForeground)
+    for x = 1, #guiID[chartID].data do
+	local proz = math.floor(100 / guiID[chartID].max * guiID[chartID].data[x])
+	local dotPos = guiID[chartID].height - math.floor( guiID[chartID].height / guiID[chartID].max * guiID[chartID].data[x])
+	for y = 1, guiID[chartID].height do
+	  if dotPos == y then
+	    gpu.setBackground(colorChartForeground)
+	  else
+	    gpu.setBackground(colorChartBackground)
+	  end
+	  gpu.set(x + guiID[chartID].x, y + guiID[chartID].y, " ")
+
+	end
     end
+  end
 end
 
-function g.update(o,start,self) --self: not execute self.show?
-    if o==nil then
-        g.show()
-        gpu.setForeground(fore_color_std)
-        gpu.setBackground(back_color_std)
-        return false
+-- display the gui and all widgets
+function gui.displayGui(guiID)
+  _displayFrame(guiID)
+
+  for i = 1, #guiID do
+    if guiID[i].type == "label" then
+      _displayLabel(guiID, i)
+    elseif guiID[i].type == "button" then
+      _displayButton(guiID, i)
+    elseif guiID[i].type == "text" then
+      _displayText(guiID, i)
+    elseif guiID[i].type == "progress" then
+      _displayProgress(guiID, i)
+    elseif guiID[i].type == "vprogress" then
+      _displayVProgress(guiID, i)
+    elseif guiID[i].type == "list" then
+      _displayList(guiID, i)
+    elseif guiID[i].type == "frame" then
+      _displayAFrame(guiID, i)
+    elseif guiID[i].type == "hline" then
+      _displayHLine(guiID, i)
+    elseif guiID[i].type == "checkbox" then
+      _displayCheckbox(guiID, i)
+    elseif guiID[i].type == "radio" then
+      _displayRadio(guiID, i)
+    elseif guiID[i].type == "vslider" then
+      _displayVslider(guiID, i)
+    elseif guiID[i].type == "chart" then
+      _displayChart(guiID, i)
     end
-    if type(o)~="table" then
-        o=objects[o]
-    end
-    start=start or 1
-    local update_list={}
-    local w,h=gpu.getResolution()
-    for i=1,#objects do
-        if objects[objects[i]]~=o then
-            local k=objects[objects[i]]
-            if k.getLayer()>=start then
-                if k.getX()<=o.getX()+o.getRX() and k.getX()+k.getRX()>=o.getX() then
-                    if k.getY()<=o.getY()+o.getRX() and k.getY()+k.getRY()>=o.getY() then
-                        if k.getCoords()==nil then
-                            if update_list[k.getLayer()]==nil then
-                                update_list[k.getLayer()]={}
-                            end
-                            update_list[k.getLayer()][#update_list[k.getLayer()]+1]=k
-                        else
-                            for j=1,#k.getCoords() do
-                                if k.getCoords()[j][1]<=o.getX()+o.getRX() and k.getCoords()[j][1]>=o.getX() then
-                                    if k.getCoords()[j][2]>=o.getY() and k.getCoords()[j][2]<=o.getY()+o.getRY() then
-                                        if update_list[k.getLayer()]==nil then
-                                            update_list[k.getLayer()]={}
-                                        end
-                                        update_list[k.getLayer()][#update_list[k.getLayer()]+1]=k
-                                        break
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        else
-            if start<=o.getLayer() and self==nil then --not called after g.fill/g.set --> double execution
-                if update_list[o.getLayer()]==nil then
-                    update_list[o.getLayer()]={}
-                end
-                update_list[o.getLayer()][#update_list[o.getLayer()]+1]=o
-            end
-        end
-    end
-    for i=1,300 do
-        if update_list[i]~=nil then
-            for j=1,#update_list[i] do
-                if update_list[i][j]~=nil then
-                    if update_list[i][j].update~=nil then
-                        local b=update_list[i][j]
-                        local x,y,rx,ry
-                        if b.getCoords()~=nil and b.updateCoords~=nil and b~=o then
-                            for j=1,#b.getCoords() do
-                                if b.getCoords()[j][1]<=o.getX()+o.getRX() and b.getCoords()[j][1]>=o.getX() then
-                                    if b.getCoords()[j][2]>=o.getY() and b.getCoords()[j][2]<=o.getY()+o.getRY() then
-                                        b.updateCoords(k.getCoords()[j][1],k.getCoords()[j][2])
-                                        gpu.setForeground(fore_color_std)
-                                        gpu.setBackground(back_color_std)
-                                    end
-                                end
-                            end
-                        elseif b~=o then
-                            if b.getX()<o.getX() then
-                                x=o.getX()
-                                if o.getRX()+o.getX()>b.getRX()+b.getX() then
-                                    rx=b.getX()+b.getRX()-o.getX()
-                                else
-                                    rx=o.getRX()
-                                end
-                            else
-                                x=b.getX()
-                                if b.getRX()+b.getX()>o.getRX()+o.getX() then
-                                    rx=o.getRX()+o.getX()-b.getX()
-                                else
-                                    rx=b.getRX()
-                                end
-                            end
-                            if b.getY()<o.getY() then
-                                y=o.getY()
-                                if o.getRY()+o.getY()>b.getRY()+b.getY() then
-                                    ry=b.getRY()+b.getY()-o.getY()
-                                else
-                                    ry=o.getRY()
-                                end
-                            else
-                                y=b.getY()
-                                if b.getRY()+b.getY()>o.getRY()+o.getY() then
-                                    ry=o.getRY()+o.getY()-b.getY()
-                                else
-                                    ry=b.getRY()
-                                end
-                            end
-                            b.update(x,y,rx,ry)
-                            gpu.setForeground(fore_color_std)
-                            gpu.setBackground(back_color_std)
-                        else
-                            o.update()
-                            gpu.setForeground(fore_color_std)
-                            gpu.setBackground(back_color_std)
-                        end
-                    else
-                        --complicated calculation of all objects in front of object that has no update() method..
-                    end
-                end
-            end
-        end
-    end
-    update_list={}
-    --if g.getHighestLayer()>280 then  --currently unused, not needed with good GUI-design
-        --g.opt_layers()
-    --end
+  end
 end
 
-function g.getHighestLayer(x,y,rx,ry)
-    x=x or 1 y=y or 1
-    if rx==nil or ry==nil then
-        local w,h=g.getResolution()
-        rx=w-1
-        ry=h-1
-    end
-    local layer=getLayer(x,y,rx,ry,1)
-    return layer
+
+function gui.exit()
+  gpu.setBackground(0x000000)
+  gpu.setForeground(0xFFFFFF)
+  gpu.fill(1, 1, screenWidth, screenHeight, " ")
+  os.exit()
 end
 
-function g.getLowestLayer(x,y,rx,ry)
-    x=x or 1 y=y or 1
-    if rx==nil or ry==nil then
-        local w,h=g.getResolution()
-        rx=w-1
-        ry=h-1
-    end
-    local layer=getLayer(x,y,rx,ry,-1)
-    return layer
+function gui.clearScreen()
+  gpu.setBackground(colorScreenBackground)
+  gpu.setForeground(colorScreenForeground)
+  gpu.fill(1, 1, screenWidth, screenHeight, " ")
+
+  gpu.setBackground(colorTopLineBackground)
+  gpu.setForeground(colorTopLineForeground)
+  gpu.fill(1, 1, screenWidth, 1, " ")
+
+  gpu.setBackground(colorBottomLineBackground)
+  gpu.setForeground(colorBottomLineForeground)
+  gpu.fill(1, screenHeight, screenWidth, 1, " ")
 end
 
-function g.getStdBCol()
-    return back_color_std
+function gui.setTop(text)
+  gpu.setBackground(colorTopLineBackground)
+  gpu.setForeground(colorTopLineForeground)
+  gpu.set( (screenWidth / 2) - (string.len(text) / 2), 1, text)
 end
 
-function g.getStdFCol()
-    return fore_color_std
+function gui.setBottom(text)
+  gpu.setBackground(colorBottomLineBackground)
+  gpu.setForeground(colorBottomLineForeground)
+  gpu.set( (screenWidth / 2) - (string.len(text) / 2), screenHeight, text)
 end
 
-function g.set(x,y,rx,ry,layer,text,ref,bcol,fcol)
-    x=x or 1 y=y or 1 rx=rx or 0 ry=ry or 0
-    if ref==nil then
-        return false
-    end
-    text=text or " "
-    layer=layer or g.getHighestLayer(x,y,rx,ry)
-    local w,h=g.getResolution()
-    local add=true
-    if x>w or y>h then
-        add=false
-    elseif x+rx<1 then
-        add=false
-    elseif y+ry<1 then
-        add=false
-    end
-    if add then
-        for i=x,x+rx do
-            for j=y,y+ry do
-                if bcol~=nil then
-                    gpu.setBackground(bcol)
-                end
-                if fcol~=nil then
-                    gpu.setForeground(fcol)
-                end
-                gpu.set(i,j,text)
-                gpu.setBackground(back_color_std)
-                gpu.setForeground(fore_color_std)
-            end
-        end
-    end
-    if layerT[layer]==nil then
-        layerT[layer]={}
-    end
-    local add=true
-    for j=1,#layerT[layer] do
-        if layerT[layer][j]==objects[ref] then
-            add=false
-            break
-        end
-    end
-    if add then
-        layerT[layer][#layerT[layer]+1]=objects[ref]
-    end
+-- need to be called first to setup a new dialog
+function gui.newGui(x, y, w, h, frame, text, bg, fg)
+  local tmpTable = {}
+  if x == "center" then
+    tmpTable["x"] = math.floor((screenWidth / 2) - (w / 2))
+  else
+    tmpTable["x"] = x
+  end
+  if y == "center" then
+    tmpTable["y"] = math.floor((screenHeight / 2) - (h / 2))
+  else
+    tmpTable["y"] = y
+  end
+  tmpTable["bg"] = bg or colorFrameBackground
+  tmpTable["fg"] = fg or colorFrameForeground
+  tmpTable["width"] = w
+  tmpTable["height"] = h
+  tmpTable["frame"] = frame
+  if text then
+    tmpTable["text"] = "╡" .. text .. "┝"
+  end
+  return tmpTable
 end
 
-function g.fill(x,y,rx,ry,layer,text,ref,bcol,fcol)
-    x=x or 1 y=y or 1 rx=rx or 0 ry=ry or 0
-    if ref==nil then
-        return false
-    end
-    text=text or " "
-    layer=layer or g.getHighestLayer(x,y,rx,ry)
-    local w,h=g.getResolution()
-    local add=true
-    if x>w or y>h then
-        add=false
-    elseif x<1 and x+rx<1 then
-        add=false
-    elseif y<1 and y+ry<1 then
-        add=false
-    end
-    if add then
-        if bcol~=nil then
-            gpu.setBackground(bcol)
-        end
-        if fcol~=nil then
-            gpu.setForeground(fcol)
-        end
-        gpu.fill(x,y,rx+1,ry+1,text)
-        gpu.setBackground(back_color_std)
-        gpu.setForeground(fore_color_std)
-    end
-    if layerT[layer]==nil then
-        layerT[layer]={}
-    end
-    local add=true
-    for j=1,#layerT[layer] do
-        if layerT[layer][j]==objects[ref] then
-            add=false
-            break
-        end
-    end
-    if add then
-        layerT[layer][#layerT[layer]+1]=objects[ref]
-    end
+-- checkbox
+function gui.newCheckbox(guiID, x, y, status)
+  local tmpTable = {}
+  tmpTable["type"] = "checkbox"
+  tmpTable["status"] = status or false
+  tmpTable["y"] = y + guiID.y
+  tmpTable["visible"] = true
+  tmpTable["enabled"] = true
+  tmpTable["x"] = x
+  table.insert(guiID, tmpTable)
+  return #guiID
 end
 
-function g.setStdForeColor(color)
-    fore_color_std=color or fore_color_std
-    g.show()
+-- radio button
+function gui.newRadio(guiID, x, y)
+  local tmpTable = {}
+  tmpTable["type"] = "radio"
+  tmpTable["status"] = false
+  tmpTable["y"] = y + guiID.y
+  tmpTable["visible"] = true
+  tmpTable["enabled"] = true
+  tmpTable["x"] = x
+  table.insert(guiID, tmpTable)
+  return #guiID
 end
 
-function g.setStdBackColor(color)
-    back_color_std=color or back_color_std
-    g.show()
+-- label
+function gui.newLabel(guiID, x, y, text, bg, fg)
+  local tmpTable = {}
+  tmpTable["type"] = "label"
+  tmpTable["y"] = y + guiID.y
+  tmpTable["text"] = text
+  tmpTable["lenght"] = string.len(text)
+  tmpTable["bg"] = bg or guiID.bg
+  tmpTable["fg"] = fg or guiID.fg
+  tmpTable["visible"] = true
+  tmpTable["x"] = x
+  table.insert(guiID, tmpTable)
+  return #guiID
 end
 
-function g.getLayerStatus(x,y,rx,ry,layer) --not used by any function
-    if layerT[layer]==nil then
-        return true --empty
+-- button
+function gui.newButton(guiID, x, y, text, func)
+  local tmpTable = {}
+  tmpTable["type"] = "button"
+  tmpTable["y"] = y + guiID.y
+  tmpTable["text"] = "[" .. text .. "]"
+  tmpTable["lenght"] = string.len(tmpTable.text)
+  tmpTable["visible"] = true
+  tmpTable["enabled"] = true
+  tmpTable["active"] = false
+  tmpTable["func"] = func
+  tmpTable["x"] = x
+  table.insert(guiID, tmpTable)
+  return #guiID
+end
+
+-- text input field
+function gui.newText(guiID, x, y, lenght, text, func)
+  local tmpTable = {}
+  tmpTable["type"] = "text"
+  tmpTable["x"] = x
+  tmpTable["y"] = y + guiID.y
+  tmpTable["text"] = text
+  tmpTable["lenght"] = lenght
+  tmpTable["visible"] = true
+  tmpTable["enabled"] = true
+  tmpTable["func"] = func
+  table.insert(guiID, tmpTable)
+  return #guiID
+end
+
+-- progressbar
+function gui.newProgress(guiID, x, y, lenght, maxValue, value, func, number)
+  local tmpTable = {}
+  tmpTable["type"] = "progress"
+  tmpTable["x"] = x
+  tmpTable["y"] = y + guiID.y
+  tmpTable["lenght"] = lenght
+  tmpTable["visible"] = true
+  tmpTable["enabled"] = true
+  tmpTable["max"] = maxValue
+  tmpTable["value"] = value
+  tmpTable["func"] = func
+  tmpTable["finished"] = false
+  tmpTable["displayNumber"] = number
+  table.insert(guiID, tmpTable)
+  return #guiID
+end
+
+-- vertical progress
+function gui.newVProgress(guiID, x, y, lenght, width, maxValue, value, func, direction)
+  local tmpTable = {}
+  tmpTable["type"] = "vprogress"
+  tmpTable["x"] = x
+  tmpTable["y"] = y + guiID.y
+  tmpTable["lenght"] = lenght
+  tmpTable["width"] = width
+  tmpTable["visible"] = true
+  tmpTable["enabled"] = true
+  tmpTable["max"] = maxValue
+  tmpTable["value"] = value
+  tmpTable["func"] = func
+  tmpTable["direction"] = direction or 0
+  tmpTable["finished"] = false
+  table.insert(guiID, tmpTable)
+  return #guiID
+end
+
+-- vertical slider
+function gui.newVSlider(guiID, x, y, lenght, minValue, maxValue, value, func)
+  local tmpTable = {}
+  tmpTable["type"] = "vslider"
+  tmpTable["x"] = x
+  tmpTable["y"] = y + guiID.y
+  tmpTable["lenght"] = lenght
+  tmpTable["visible"] = true
+  tmpTable["enabled"] = true
+  tmpTable["min"] = minValue
+  tmpTable["max"] = maxValue
+  tmpTable["value"] = value
+  tmpTable["func"] = func
+  table.insert(guiID, tmpTable)
+  return #guiID
+end
+
+-- list
+function gui.newList(guiID, x, y, width, height, tab, func, text)
+  local tmpTable = {}
+  tmpTable["type"] = "list"
+  tmpTable["x"] = x + guiID.x
+  tmpTable["y"] = y + guiID.y
+  tmpTable["width"] = width
+  tmpTable["height"] = height
+  tmpTable["visible"] = true
+  tmpTable["enabled"] = true
+  tmpTable["func"] = func
+  tmpTable["selected"] = 1
+  tmpTable["active"] = 1
+  tmpTable["entries"] = tab
+  tmpTable["text"] = text
+  table.insert(guiID, tmpTable)
+  return #guiID
+end
+
+--frame
+function gui.newFrame(guiID, x, y, width, height, text)
+  local tmpTable = {}
+  tmpTable["type"] = "frame"
+  tmpTable["x"] = x + guiID.x
+  tmpTable["y"] = y + guiID.y
+  tmpTable["width"] = width
+  tmpTable["height"] = height
+  tmpTable["visible"] = true
+  tmpTable["enabled"] = true
+  tmpTable["text"] = text
+  table.insert(guiID, tmpTable)
+  return #guiID
+end
+
+-- hline
+function gui.newHLine(guiID, x, y, width)
+  local tmpTable = {}
+  tmpTable["type"] = "hline"
+  tmpTable["x"] = x + guiID.x
+  tmpTable["y"] = y + guiID.y
+  tmpTable["width"] = width
+  tmpTable["visible"] = true
+  tmpTable["enabled"] = true
+  table.insert(guiID, tmpTable)
+  return #guiID
+end
+
+-- chart
+function gui.newChart(guiID, x, y, minValue, maxValue, data, lenght, height, bg, fg)
+  local tmpTable = {}
+  tmpTable["type"] = "chart"
+  tmpTable["y"] = y + guiID.y
+  tmpTable["lenght"] = lenght
+  tmpTable["height"] = height
+  tmpTable["bg"] = bg or guiID.bg
+  tmpTable["fg"] = fg or guiID.fg
+  tmpTable["visible"] = true
+  tmpTable["x"] = x + guiID.x
+  tmpTable["data"] = data
+  tmpTable["min"] = minValue
+  tmpTable["max"] = maxValue
+  table.insert(guiID, tmpTable)
+  return #guiID
+end
+
+function gui.getSelected(guiID, listID)
+  return guiID[listID].selected, guiID[listID].entries[guiID[listID].selected]
+end
+
+function gui.setSelected(guiID, listID, selection)
+  if selection<= #guiID[listID] then
+    guiID[listID].selected = selection
+    _displayList(guiID, listID)
+  end
+end
+
+function gui.setMax(guiID, widgetID, maxValue)
+  guiID[widgetID].max = maxValue
+  _displayProgress(guiID, widgetID)
+end
+
+function gui.setChartData(guiID, chartID, data)
+  guiID[chartID].data = data
+  _displayChart(guiID, chartID)
+end
+
+function gui.setValue(guiID, widgetID, value)
+  guiID[widgetID].value = value
+  if guiID[widgetID].type == "progress" then
+    _displayProgress(guiID, widgetID)
+  end
+  if guiID[widgetID].type == "vprogress" then
+    _displayVProgress(guiID, widgetID)
+  end
+end
+
+function gui.resetProgress(guiID, progressID)
+  guiID[progressID].finished = false
+  _displayProgress(guiID, progressID)
+end
+
+-- sets the text of a widget
+function gui.setText(guiID, widgetID, text)
+  guiID[widgetID].text = text
+  if guiID[widgetID].type == "text" then
+    _displayText(guiID, widgetID)
+  end
+  if guiID[widgetID].type == "label" then
+    _displayLabel(guiID, widgetID)
+  end
+--  gui.displayGui(guiID)
+end
+
+function gui.getText(guiID, widgetID)
+  return guiID[widgetID].text
+end
+
+function gui.getCheckboxStatus(guiID, widgetID)
+  return guiID[widgetID].status
+end
+
+function gui.setEnable(guiID, widgetID, state)
+  guiID[widgetID].enabled = state
+  gui.displayGui(guiID)
+end
+
+function gui.setVisible(guiID, widgetID, state)
+  if state == false then
+    guiID[widgetID].visible = state
+    guiID[widgetID].enabled = state
+  elseif state == true then
+    guiID[widgetID].visible = state
+  end
+  gui.displayGui(guiID)
+end
+
+function gui.setBackground(guiID, widgetID, color)
+  guiID[widgetID].bg = color
+  if guiID[widgetID].type == "label" then
+    _displayLabel(guiID, widgetID)
+  end
+end
+function gui.setForeground(guiID, widgetID, color)
+  guiID[widgetID].fg = color
+  if guiID[widgetID].type == "label" then
+    _displayLabel(guiID, widgetID)
+  end
+end
+
+function gui.clearList(guiID, listID)
+  guiID[listID].entries = {}
+end
+
+function gui.insertList(guiID, listID, value)
+  table.insert(guiID[listID].entries, value)
+  _displayList(guiID, listID)
+end
+
+function gui.getRadio(guiID)
+  for i = 1, #guiID do
+    if guiID[i].type == "radio" then
+      if guiID[i].status == true then
+	return i
+      end
     end
-    for i=1,#layerT[layer] do
-        if layerT[layer][i].getX()<x+rx and layerT[layer][i].getX()+layerT[layer][i].getRX()>x then
-            if layerT[layer][i].getY()<y+ry and layerT[layer][i].getY()+layerT[layer][i].getRY()>y then
-                return false
-            end
-        end
-    end
-    return true
+  end
+  return -1
 end
 
-function g.read(history,dobreak,hint,pwchar,fcol,bcol) return term_read(history,dobreak,hint,pwchar,fcol,bcol,fore_color_std,back_color_std) end
-function g.setCursorBlink(bool) term.setCursorBlink(bool) end
-function g.setCursor(x,y) term.setCursor(x,y) end
+function gui.setRadio(guiID, radioID)
+  for i = 1, #guiID do
+    if guiID[i].type == "radio" then
+      guiID[i].status = false
+    end
+  end
+  guiID[radioID].status = true
+  return -1
+end
 
-return g
+local function runInput(guiID, textID)
+  local inputText = guiID[textID].text
+  gpu.setBackground(colorInputBackground)
+  gpu.setForeground(colorInputForeground)
+
+  local x = 0
+  if guiID[textID].x == "center" then
+    x = guiID.x + math.floor((guiID.width / 2)) - math.floor((guiID[textID].lenght) / 2)
+  else
+    x =guiID.x + guiID[textID].x
+  end
+
+  local loopRunning = true
+  while loopRunning == true do
+    gpu.fill(x, guiID[textID].y, guiID[textID].lenght, 1, " ")
+    tmpStr = inputText
+    if string.len(tmpStr) + 1 > guiID[textID].lenght then
+      tmpStr = string.sub(tmpStr, string.len(tmpStr) - guiID[textID].lenght + 2, string.len(tmpStr))
+    end
+    gpu.set(x, guiID[textID].y, tmpStr .. "_")
+    local e, _, character, code = event.pullMultiple(0.1, "key_down", "touch")
+    if e == "key_down" then
+      if character == 8 then	-- backspace
+	inputText = string.sub(inputText, 1, string.len(inputText) - 1)
+      elseif character == 13 then 	-- return
+	guiID[textID].text = inputText
+	if guiID[textID].func then
+	  guiID[textID].func(guiID, textID, inputText)
+	end
+	loopRunning = false
+      elseif character > 31 and character < 128 then
+	inputText = inputText .. string.char(character)
+      end
+    elseif e == "touch" then
+      if character < x or character > (x + guiID[textID].lenght) or guiID[textID].y ~= code then
+	guiID[textID].text = inputText
+	_displayText(guiID, textID)
+	if guiID[textID].func then
+	  guiID[textID].func(guiID, textID, inputText)
+	end
+	loopRunning = false
+	computer.pushSignal("touch", _, character, code)
+      end
+    end
+  end
+end
+
+local displayed = false
+
+function gui.runGui(guiID)
+  if displayed == false then
+    displayed = true
+    gui.displayGui(guiID)
+  end
+  local ix = 0
+  local e, _, x, y, button = event.pull(0.1, "touch")
+  if e == nil then
+    return false
+  end
+  for i = 1, #guiID do
+    if guiID[i].type == "button" then
+      if guiID[i].x == "center" then
+	ix = guiID.x + math.floor((guiID.width / 2)) - math.floor((guiID[i].lenght / 2))
+      else
+	ix = guiID.x + guiID[i].x
+      end
+      if x >= ix and x < (ix + guiID[i].lenght) and guiID[i].y == y then
+	if guiID[i].func and guiID[i].enabled == true then
+	  guiID[i].active = true
+	  gui.displayGui(guiID)
+	  os.sleep(0.05)
+	  guiID[i].active = false
+	  gui.displayGui(guiID)
+	  guiID[i].func(guiID, i)
+	end
+      end
+    elseif guiID[i].type == "checkbox" then
+      ix = guiID.x + guiID[i].x + 1
+      if x == ix and guiID[i].y == y then
+	if guiID[i].enabled == true then
+	  if guiID[i].status == true then
+	    guiID[i].status = false
+	  else
+	    guiID[i].status = true
+	  end
+	  _displayCheckbox(guiID, i)
+	end
+      end
+    elseif guiID[i].type == "radio" then
+      ix = guiID.x + guiID[i].x + 1
+      if x == ix and guiID[i].y == y then
+	if guiID[i].enabled == true then
+	  for c = 1, #guiID do
+	    if guiID[c].type == "radio" then
+	      guiID[c].status = false
+	      _displayRadio(guiID, c)
+	    end
+	  end
+	  guiID[i].status = true
+	  _displayRadio(guiID, i)
+	end
+      end
+    elseif guiID[i].type == "text" then
+      if guiID[i].x == "center" then
+	ix = guiID.x + math.floor((guiID.width / 2)) - math.floor((guiID[i].lenght / 2))
+      else
+	ix = guiID.x + guiID[i].x
+      end
+      if x >= ix and x < (ix + guiID[i].lenght) and guiID[i].y == y then
+	if guiID[i].enabled == true then
+	  runInput(guiID, i)
+	end
+      end
+    elseif guiID[i].type == "list" and guiID[i].enabled == true then
+      if x == guiID[i].x +1 and y == guiID[i].y + guiID[i].height - 1 then
+	guiID[i].active = guiID[i].active - guiID[i].height + 2
+	if guiID[i].active < 1 then
+	  guiID[i].active = 1
+	end
+	gpu.setBackground(colorListActiveBackground)
+	gpu.setForeground(colorListActiveForeground)
+	gpu.set(guiID[i].x, guiID[i].y + guiID[i].height - 1, "[<]")
+	guiID[i].selected = guiID[i].active
+--	_displayList(guiID, i)
+
+	if guiID[i].func then
+	  gpu.setBackground(colorButtonClickedBackground)
+	  gpu.setForeground(colorButtonClickedForeground)
+	  gpu.set(guiID[i].x, guiID[i].y + guiID[i].height - 1, "[<]")
+	  os.sleep(0.05)
+	  gpu.setBackground(colorListBackground)
+	  gpu.setForeground(colorListForeground)
+	  gpu.set(guiID[i].x, guiID[i].y + guiID[i].height - 1, "[<]")
+	  guiID[i].func(guiID, i, guiID[i].selected, guiID[i].entries[guiID[i].selected])
+	end
+      end
+      if x == guiID[i].x + guiID[i].width - 2 and y == guiID[i].y + guiID[i].height - 1 then
+	if guiID[i].active + guiID[i].height - 2 < #guiID[i].entries then
+	  guiID[i].active = guiID[i].active + guiID[i].height - 2
+	  guiID[i].selected = guiID[i].active
+	end
+	gpu.setBackground(colorListActiveBackground)
+	gpu.setForeground(colorListActiveForeground)
+	gpu.set(guiID[i].x + guiID[i].width - 3, guiID[i].y + guiID[i].height - 1, "[>]")
+--	_displayList(guiID, i)
+
+	if guiID[i].func then
+	  gpu.setBackground(colorButtonClickedBackground)
+	  gpu.setForeground(colorButtonClickedForeground)
+	  gpu.set(guiID[i].x + guiID[i].width - 3, guiID[i].y + guiID[i].height - 1, "[>]")
+	  os.sleep(0.05)
+	  gpu.setBackground(colorListBackground)
+	  gpu.setForeground(colorListForeground)
+	  gpu.set(guiID[i].x + guiID[i].width - 3, guiID[i].y + guiID[i].height - 1, "[>]")
+	  guiID[i].func(guiID, i, guiID[i].selected, guiID[i].entries[guiID[i].selected])
+	end
+      end
+      if x > guiID[i].x - 1 and x < guiID[i].x + guiID[i].width and y > guiID[i].y and y < guiID[i].y + guiID[i].height - 1 then
+	if guiID[i].active + y - guiID[i].y - 1 <= #guiID[i].entries then
+	  guiID[i].selected = guiID[i].active + y - guiID[i].y - 1
+--	  _displayList(guiID, i)
+
+	  if guiID[i].func then
+	    guiID[i].func(guiID, i, guiID[i].selected, guiID[i].entries[guiID[i].selected])
+	  end
+	end
+      end
+	  _displayList(guiID, i)
+    elseif guiID[i].type == "chart" and guiID[i].enabled == true then
+      _displayChart(guiID, i)
+    end
+  end
+
+--  gui.displayGui(guiID)
+end
+
+errorGui = gui.newGui("center", "center", 40, 10, true, "ERROR", 0xFF0000, 0xFFFF00)
+errorMsgLabel1 = gui.newLabel(errorGui, "center", 3, "")
+errorMsgLabel2 = gui.newLabel(errorGui, "center", 4, "")
+errorMsgLabel3 = gui.newLabel(errorGui, "center", 5, "")
+errorButton = gui.newButton(errorGui, "center", 8, "exit", gui.exit)
+
+function gui.showError(msg1, msg2, msg3)
+  gui.setText(errorGui, errorMsgLabel1, msg1 or "")
+  gui.setText(errorGui, errorMsgLabel2, msg2 or "")
+  gui.setText(errorGui, errorMsgLabel3, msg3 or "")
+  gui.displayGui(errorGui)
+  while true do
+    gui.runGui(errorGui)
+  end
+end
+
+
+local msgRunning = true
+function msgCallback()
+  msgRunning = false
+end
+
+msgGui = gui.newGui("center", "center", 40, 10, true, "Info")
+msgLabel1 = gui.newLabel(msgGui, "center", 3, "")
+msgLabel2 = gui.newLabel(msgGui, "center", 4, "")
+msgLabel3 = gui.newLabel(msgGui, "center", 5, "")
+msgButton = gui.newButton(msgGui, "center", 8, "ok", msgCallback)
+
+function gui.showMsg(msg1, msg2, msg3)
+  gui.setText(msgGui, msgLabel1, msg1 or "")
+  gui.setText(msgGui, msgLabel2, msg2 or "")
+  gui.setText(msgGui, msgLabel3, msg3 or "")
+  msgRunning = true
+  gui.displayGui(msgGui)
+  while msgRunning == true do
+    gui.runGui(msgGui)
+  end
+end
+
+
+local yesNoRunning = true
+local yesNoValue = false
+
+local function yesNoCallbackYes()
+  yesNoRunning = false
+  yesNoValue = true
+end
+local function yesNoCallbackNo()
+  yesNoRunning = false
+  yesNoValue = false
+end
+
+yesNoGui = gui.newGui("center", "center", 40, 10, true, "Question")
+yesNoMsgLabel1 = gui.newLabel(yesNoGui, "center", 3, "")
+yesNoMsgLabel2 = gui.newLabel(yesNoGui, "center", 4, "")
+yesNoMsgLabel3 = gui.newLabel(yesNoGui, "center", 5, "")
+yesNoYesButton = gui.newButton(yesNoGui, 3, 8, "yes", yesNoCallbackYes)
+yesNoNoButton = gui.newButton(yesNoGui, 33, 8, "no", yesNoCallbackNo)
+
+
+function gui.getYesNo(msg1, msg2, msg3)
+  yesNoRunning = true
+  gui.setText(yesNoGui, yesNoMsgLabel1, msg1 or "")
+  gui.setText(yesNoGui, yesNoMsgLabel2, msg2 or "")
+  gui.setText(yesNoGui, yesNoMsgLabel3, msg3 or "")
+  gui.displayGui(yesNoGui)
+  while yesNoRunning == true do
+    gui.runGui(yesNoGui)
+  end
+  return yesNoValue
+end
+
+
+
+
+-- File handling
+
+function gui.splitString(str, sep)
+        local sep, fields = sep or ":", {}
+        local pattern = string.format("([^%s]+)", sep)
+        str:gsub(pattern, function(c) fields[#fields+1] = c end)
+        return fields
+end
+
+
+
+
+local function convert( chars, dist, inv )
+  return string.char( ( string.byte( chars ) - 32 + ( inv and -dist or dist ) ) % 95 + 32 )
+end
+
+function gui.string2key(str)
+  tmpTable = {}
+  for i = 1, string.len(str) do
+    tmpTable[i] = string.byte(str,i)
+  end
+  while #tmpTable < 5 do
+    table.insert(tmpTable,100)
+  end
+  return tmpTable
+end
+
+
+function gui.crypt(str,inv,k)
+  if not k then
+    k = {1,2,3,4,5}
+  end
+  while #k < 5 do
+    table.insert(k,100)
+  end
+  local enc= "";
+  for i=1,#str do
+    if(#str-k[#k] >= i or not inv)then
+      for inc=0,3 do
+	if(i%4 == inc)then
+	  enc = enc .. convert(string.sub(str,i,i),k[inc+1],inv);
+	  break;
+	end
+      end
+    end
+  end
+  if(not inv)then
+    for i=1,k[#k] do
+      enc = enc .. string.char(math.random(32,126));
+    end
+  end
+  return enc;
+end
+
+--// exportstring( string )
+--// returns a "Lua" portable version of the string
+local function exportstring( s )
+	s = string.format( "%q",s )
+	-- to replace
+	s = string.gsub( s,"\\\n","\\n" )
+	s = string.gsub( s,"\r","\\r" )
+	s = string.gsub( s,string.char(26),"\"..string.char(26)..\"" )
+	return s
+end
+--// The Save Function
+function gui.saveTable(tbl,filename )
+	local charS,charE = "   ","\n"
+	local file,err
+	-- create a pseudo file that writes to a string and return the string
+	if not filename then
+		file =  { write = function( self,newstr ) self.str = self.str..newstr end, str = "" }
+		charS,charE = "",""
+	-- write table to tmpfile
+	elseif filename == true or filename == 1 then
+		charS,charE,file = "","",io.tmpfile()
+	-- write table to file
+	-- use io.open here rather than io.output, since in windows when clicking on a file opened with io.output will create an error
+	else
+		file,err = io.open( filename, "w" )
+		if err then
+		  print ("Gui-lib: Error saving table " .. filename .." -> " .. err)
+		  return _,err
+		end
+	end
+	-- initiate variables for save procedure
+	local tables,lookup = { tbl },{ [tbl] = 1 }
+	file:write( "return {"..charE )
+	for idx,t in ipairs( tables ) do
+		if filename and filename ~= true and filename ~= 1 then
+			file:write( "-- Table: {"..idx.."}"..charE )
+		end
+		file:write( "{"..charE )
+		local thandled = {}
+		for i,v in ipairs( t ) do
+			thandled[i] = true
+			-- escape functions and userdata
+			if type( v ) ~= "userdata" then
+				-- only handle value
+				if type( v ) == "table" then
+					if not lookup[v] then
+						table.insert( tables, v )
+						lookup[v] = #tables
+					end
+					file:write( charS.."{"..lookup[v].."},"..charE )
+				elseif type( v ) == "function" then
+					file:write( charS.."loadstring("..exportstring(string.dump( v )).."),"..charE )
+				else
+					local value =  ( type( v ) == "string" and exportstring( v ) ) or tostring( v )
+					file:write(  charS..value..","..charE )
+				end
+			end
+		end
+		for i,v in pairs( t ) do
+			-- escape functions and userdata
+			if (not thandled[i]) and type( v ) ~= "userdata" then
+				-- handle index
+				if type( i ) == "table" then
+					if not lookup[i] then
+						table.insert( tables,i )
+						lookup[i] = #tables
+					end
+					file:write( charS.."[{"..lookup[i].."}]=" )
+				else
+					local index = ( type( i ) == "string" and "["..exportstring( i ).."]" ) or string.format( "[%d]",i )
+					file:write( charS..index.."=" )
+				end
+				-- handle value
+				if type( v ) == "table" then
+					if not lookup[v] then
+						table.insert( tables,v )
+						lookup[v] = #tables
+					end
+					file:write( "{"..lookup[v].."},"..charE )
+				elseif type( v ) == "function" then
+					file:write( "loadstring("..exportstring(string.dump( v )).."),"..charE )
+				else
+					local value =  ( type( v ) == "string" and exportstring( v ) ) or tostring( v )
+					file:write( value..","..charE )
+				end
+			end
+		end
+		file:write( "},"..charE )
+	end
+	file:write( "}" )
+	-- Return Values
+	-- return stringtable from string
+	if not filename then
+		-- set marker for stringtable
+		return file.str.."--|"
+	-- return stringttable from file
+	elseif filename == true or filename == 1 then
+		file:seek ( "set" )
+		-- no need to close file, it gets closed and removed automatically
+		-- set marker for stringtable
+		return file:read( "*a" ).."--|"
+	-- close file and return 1
+	else
+		file:close()
+		return 1
+	end
+end
+
+--// The Load Function
+function gui.loadTable( sfile )
+	local tables, err, _
+
+	-- catch marker for stringtable
+	if string.sub( sfile,-3,-1 ) == "--|" then
+		tables,err = loadstring( sfile )
+	else
+		tables,err = loadfile( sfile )
+	end
+	if err then
+	  print("Gui-lib: Error loading table " ..sfile .. " -> " ..err)
+	  return _,err
+	end
+	tables = tables()
+	for idx = 1,#tables do
+		local tolinkv,tolinki = {},{}
+		for i,v in pairs( tables[idx] ) do
+			if type( v ) == "table" and tables[v[1]] then
+				table.insert( tolinkv,{ i,tables[v[1]] } )
+			end
+			if type( i ) == "table" and tables[i[1]] then
+				table.insert( tolinki,{ i,tables[i[1]] } )
+			end
+		end
+		-- link values, first due to possible changes of indices
+		for _,v in ipairs( tolinkv ) do
+			tables[idx][v[1]] = v[2]
+		end
+		-- link indices
+		for _,v in ipairs( tolinki ) do
+			tables[idx][v[2]],tables[idx][v[1]] =  tables[idx][v[1]],nil
+		end
+	end
+	return tables[1]
+end
+
+function gui.sepString(str)
+  tmpTable = {}
+  for i = 1, string.len(str) do
+    tmpTable[i] = string.char(string.byte(str,i))
+  end
+  return tmpTable
+end
+
+
+
+
+
+
+return gui

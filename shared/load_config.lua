@@ -1,7 +1,8 @@
 local fs = require("filesystem")
 local json = loadfile("/usr/lib/json.lua")()
+local json_init = require("json_init")
 
-dofile("/opt/shared/json_init.lua")()
+json_init()
 
 return function (config)
   local file = fs.open(config)
