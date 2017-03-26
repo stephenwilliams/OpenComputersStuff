@@ -78,7 +78,7 @@ end
 
 if (args[1] == "spawn" and table.getn(args) == 2) then
   toggleSpawner(args[2])
-elseif (args[1] == "spawn" and table.getn(args) ~= 2)
+elseif (args[1] == "spawn" and table.getn(args) ~= 2) then
   print("Usage is spawn <mob>")
 elseif (args[1] == "list") then
   listSpawners()
