@@ -48,7 +48,7 @@ if (table.getn(args) <= 0) then
   return
 end
 
-if (args[1] == "spawn" and table.getn(args) = 2) then
+if (args[1] == "spawn" and table.getn(args) == 2) then
   toggleSpawner(args[2])
 end
 
