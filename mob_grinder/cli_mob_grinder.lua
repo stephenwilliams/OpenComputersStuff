@@ -66,7 +66,7 @@ end
 
 -- END FUNCTIONS
 
-if (table.getn(args) <= 0) then
+if (#args <= 0) then
   print("Mob Grinder CLI")
   print("---------------")
   print("spawn mob")
@@ -76,9 +76,9 @@ if (table.getn(args) <= 0) then
   return
 end
 
-if (args[1] == "spawn" and table.getn(args) == 2) then
+if (args[1] == "spawn" and #args == 2) then
   toggleSpawner(args[2])
-elseif (args[1] == "spawn" and table.getn(args) ~= 2) then
+elseif (args[1] == "spawn" and #args ~= 2) then
   print("Usage is spawn <mob>")
 elseif (args[1] == "list") then
   listSpawners()
