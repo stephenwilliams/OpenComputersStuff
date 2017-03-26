@@ -33,6 +33,7 @@ function toggleSpawner(mob)
   local spawnerColor = colors[spawner["color"]]
 
   if (rs.getBundledOutput(bundle, spawnerColor) > 0) then
+    rs.setBundledOutput(bundle, spawnerColor, 0)
     print("Turned spawner '"..spawner.name.."' off")
   else
     rs.setBundledOutput(bundle, spawnerColor, 15)
@@ -48,6 +49,7 @@ end
 
 function toggleLights()
   if (rs.getBundledOutput(bundle, colors[config["lights"]]) > 0) then
+    rs.setBundledOutput(bundle, colors[config["lights"]], 0)
     print("Turned lights off")
   else
     rs.setBundledOutput(bundle, colors[config["lights"]], 15)
@@ -57,6 +59,7 @@ end
 
 function toggleGrinder()
   if (rs.getBundledOutput(bundle, colors[config["grinder"]]) > 0) then
+    rs.setBundledOutput(bundle, colors[config["grinder"]], 0)
     print("Turned grinder off")
   else
     rs.setBundledOutput(bundle, colors[config["grinder"]], 15)
