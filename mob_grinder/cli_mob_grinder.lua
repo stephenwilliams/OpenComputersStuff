@@ -6,7 +6,7 @@ local sides = require("sides")
 local load_config = require("load_config")
 
 local args, ops = shell.parse(...)
-local config = require("/etc/mob_grinder.cfg")
+local config = load_config("/etc/mob_grinder.cfg")
 
 local bundle = sides[config["bundle"]]
 
