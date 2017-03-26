@@ -33,7 +33,6 @@ function toggleSpawner(mob)
   local spawnerColor = colors[spawner["color"]]
 
   if (rs.getBundledOutput(bundle, spawnerColor) > 0) then
-    rs.setBundledOutput(bundle, spawnerColor, 0)
     print("Turned spawner '"..spawner.name.."' off")
   else
     rs.setBundledOutput(bundle, spawnerColor, 15)

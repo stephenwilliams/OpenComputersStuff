@@ -5,6 +5,16 @@ local json_init = require("json_init")
 json_init()
 
 return function (config)
-  local file = fs.open(config)
-  return json:decode(file:read("a*"))
+  local contents = ""
+
+  do
+    local file = fs.open(config)
+    local s = file:read(2048)
+    while s do
+      contents = contents..s
+      s = file:read(2048)
+    end
+  end
+
+  return json:decode(contents)
 end
